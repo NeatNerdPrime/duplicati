@@ -86,6 +86,8 @@ public static partial class Command
         { "Duplicati.CommandLine.Snapshots", "duplicati-snapshots" },
         { "Duplicati.CommandLine.ServerUtil", "duplicati-server-util" },
         { "Duplicati.CommandLine.SecretTool", "duplicati-secret-tool" },
+        { "Duplicati.CommandLine.SyncTool", "duplicati-sync-tool" },
+        { "Duplicati.CommandLine.SourceTool", "duplicati-source-tool" },
         { "Duplicati.Service", "duplicati-service" },
         { "Duplicati.Agent", "duplicati-agent" },
         { "Duplicati.CommandLine", "duplicati-cli" },
@@ -221,6 +223,12 @@ public static partial class Command
 
         var passwordOption = SharedOptions.passwordOption;
 
+        var signkeyPinOption = new Option<string>(
+            name: "--signkey-pin",
+            description: "The pin to use for the signing key",
+            getDefaultValue: () => string.Empty
+        );
+
         var disableDockerPushOption = new Option<bool>(
             name: "--disable-docker-push",
             description: "Disables pushing the docker image to the repository",
@@ -316,6 +324,7 @@ public static partial class Command
             disableAuthenticodeOption,
             disableCodeSignOption,
             passwordOption,
+            signkeyPinOption,
             macOsAppNameOption,
             disableDockerPushOption,
             dockerRepoOption,
@@ -350,6 +359,7 @@ public static partial class Command
     /// <param name="DisableAuthenticode">If authenticode signing should be disabled</param>
     /// <param name="DisableSignCode">If signcode should be disabled</param>
     /// <param name="Password">The password to use for the keyfile</param>
+    /// <param name="SignkeyPin">The pin to use for the signing key</param>
     /// <param name="DisableDockerPush">If the docker push should be disabled</param>
     /// <param name="MacOSAppName">The name of the MacOS app bundle</param>
     /// <param name="DockerRepo">The docker repository to push to</param>
@@ -375,6 +385,7 @@ public static partial class Command
         bool DisableAuthenticode,
         bool DisableSignCode,
         string Password,
+        string SignkeyPin,
         bool DisableDockerPush,
         string MacOSAppName,
         string DockerRepo,
@@ -393,6 +404,7 @@ public static partial class Command
     static async Task DoBuild(CommandInput input)
     {
         Console.WriteLine($"Building {input.Channel} release ...");
+        var configuration = Configuration.Create(input.Channel);
 
         var buildTargets = input.Targets;
 
@@ -403,15 +415,15 @@ public static partial class Command
             throw new FileNotFoundException($"Solution file not found: {input.SolutionFile.FullName}");
 
         // This could be fixed, so we will throw an exception if the build is not possible
-        if (buildTargets.Any(x => x.Package == PackageType.MSI) && !Program.Configuration.IsMSIBuildPossible())
+        if (buildTargets.Any(x => x.Package == PackageType.MSI) && !configuration.IsMSIBuildPossible())
             throw new Exception("WiX toolset not configured, cannot build MSI files");
 
         // This will be fixed in the future, but requires a new http-interface for Synology DSM
-        if (buildTargets.Any(x => x.Package == PackageType.SynologySpk) && !Program.Configuration.IsSynologyPkgPossible())
+        if (buildTargets.Any(x => x.Package == PackageType.SynologySpk) && !configuration.IsSynologyPkgPossible())
             throw new Exception("Synology SPK files are currently not supported");
 
         // This will not work, so to make it easier for non-MacOS developers, we will remove the MacOS packages
-        if (buildTargets.Any(x => x.Package == PackageType.MacPkg || x.Package == PackageType.DMG) && !Program.Configuration.IsMacPkgBuildPossible())
+        if (buildTargets.Any(x => x.Package == PackageType.MacPkg || x.Package == PackageType.DMG) && !configuration.IsMacPkgBuildPossible())
         {
             Console.WriteLine("MacOS packages requested but not running on MacOS, removing from build targets");
             buildTargets = buildTargets.Where(x => x.Package != PackageType.MacPkg && x.Package != PackageType.DMG).ToArray();
@@ -480,13 +492,14 @@ public static partial class Command
         if (string.IsNullOrWhiteSpace(keyfilePassword))
             keyfilePassword = ConsoleHelper.ReadPassword("Enter keyfile password");
 
-        var primarySignKey = LoadKeyFile(Program.Configuration.ConfigFiles.UpdaterKeyfile.FirstOrDefault(), keyfilePassword, false);
-        var additionalKeys = Program.Configuration.ConfigFiles.UpdaterKeyfile
+        var primarySignKey = LoadKeyFile(configuration.ConfigFiles.UpdaterKeyfile.FirstOrDefault(), keyfilePassword, false);
+        var additionalKeys = configuration.ConfigFiles.UpdaterKeyfile
             .Skip(1)
             .Select(x => LoadKeyFile(x, keyfilePassword, true));
 
         // Configure runtime environment
         var rtcfg = new RuntimeConfig(
+            configuration,
             releaseInfo,
             additionalKeys.Prepend(primarySignKey).ToList(),
             keyfilePassword,
@@ -589,11 +602,11 @@ public static partial class Command
                 }),
                 Path.Combine(input.BuildPath.FullName, "packages"),
                 version: releaseInfo.Version.ToString(),
-                incompatibleUpdateUrl: ReplaceVersionPlaceholders(Program.Configuration.ExtraSettings.UpdateFromIncompatibleVersionUrl, releaseInfo),
-                genericUpdatePageUrl: ReplaceVersionPlaceholders(Program.Configuration.ExtraSettings.GenericUpdatePageUrl, releaseInfo),
+                incompatibleUpdateUrl: ReplaceVersionPlaceholders(configuration.ExtraSettings.UpdateFromIncompatibleVersionUrl, releaseInfo),
+                genericUpdatePageUrl: ReplaceVersionPlaceholders(configuration.ExtraSettings.GenericUpdatePageUrl, releaseInfo),
                 releaseType: releaseInfo.Channel.ToString().ToLowerInvariant(),
                 packages: builtPackages.Select(x => new PackageEntry(
-                    RemoteUrls: Program.Configuration.ExtraSettings.PackageUrls
+                    RemoteUrls: configuration.ExtraSettings.PackageUrls
                         .Select(u =>
                             ReplaceVersionPlaceholders(u, releaseInfo)
                             .Replace("${FILENAME}", HttpUtility.UrlEncode(Path.GetFileName(x.CreatedFile)))
@@ -783,7 +796,7 @@ public static partial class Command
     /// <returns>Modified files</returns>
     static Task<List<string>> PrepareSourceDirectory(string baseDir, ReleaseInfo releaseInfo, RuntimeConfig rtcfg)
     {
-        var urlstring = string.Join(";", Program.Configuration.ExtraSettings.UpdaterUrls.Select(x =>
+        var urlstring = string.Join(";", rtcfg.Configuration.ExtraSettings.UpdaterUrls.Select(x =>
             ReplaceVersionPlaceholders(x, releaseInfo)
             .Replace("${FILENAME}", HttpUtility.UrlEncode("latest-v2.manifest"))
         ));
@@ -831,8 +844,8 @@ public static partial class Command
             JsonSerializer.Serialize(new { Displayname = $"Duplicati v{releaseInfo.Version} - {releaseInfo.Channel}" }),
             Path.Combine(baseDir, "Duplicati", "Library", "AutoUpdater"),
             version: releaseInfo.Version.ToString(),
-            incompatibleUpdateUrl: ReplaceVersionPlaceholders(Program.Configuration.ExtraSettings.UpdateFromIncompatibleVersionUrl, releaseInfo),
-            genericUpdatePageUrl: ReplaceVersionPlaceholders(Program.Configuration.ExtraSettings.GenericUpdatePageUrl, releaseInfo),
+            incompatibleUpdateUrl: ReplaceVersionPlaceholders(rtcfg.Configuration.ExtraSettings.UpdateFromIncompatibleVersionUrl, releaseInfo),
+            genericUpdatePageUrl: ReplaceVersionPlaceholders(rtcfg.Configuration.ExtraSettings.GenericUpdatePageUrl, releaseInfo),
             releaseType: releaseInfo.Channel.ToString().ToLowerInvariant()
         );
 
@@ -867,7 +880,7 @@ public static partial class Command
 
         foreach (var target in targets)
         {
-            if (string.IsNullOrWhiteSpace(Program.Configuration.Commands.Npm))
+            if (string.IsNullOrWhiteSpace(rtcfg.Configuration.Commands.Npm))
                 throw new Exception("NPM command not found, but required for building");
 
             // Remove existing node_modules folder
@@ -885,7 +898,7 @@ public static partial class Command
             EnvHelper.CopyDirectory(target, tmp, true);
 
             // Run npm install in the temporary folder
-            await ProcessHelper.Execute(new[] { Program.Configuration.Commands.Npm, "ci" }, workingDirectory: tmp);
+            await ProcessHelper.Execute([rtcfg.Configuration.Commands.Npm, "ci"], workingDirectory: tmp);
             var basefolder = Directory.EnumerateDirectories(Path.Combine(tmp, "node_modules"), "*", SearchOption.AllDirectories)
                 .Where(x => File.Exists(Path.Combine(x, "index.html")))
                 .OrderBy(x => x.Length)

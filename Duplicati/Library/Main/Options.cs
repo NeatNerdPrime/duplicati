@@ -1,22 +1,22 @@
 // Copyright (C) 2025, The Duplicati Team
 // https://duplicati.com, hello@duplicati.com
-// 
-// Permission is hereby granted, free of charge, to any person obtaining a 
-// copy of this software and associated documentation files (the "Software"), 
-// to deal in the Software without restriction, including without limitation 
-// the rights to use, copy, modify, merge, publish, distribute, sublicense, 
-// and/or sell copies of the Software, and to permit persons to whom the 
+//
+// Permission is hereby granted, free of charge, to any person obtaining a
+// copy of this software and associated documentation files (the "Software"),
+// to deal in the Software without restriction, including without limitation
+// the rights to use, copy, modify, merge, publish, distribute, sublicense,
+// and/or sell copies of the Software, and to permit persons to whom the
 // Software is furnished to do so, subject to the following conditions:
-// 
-// The above copyright notice and this permission notice shall be included in 
+//
+// The above copyright notice and this permission notice shall be included in
 // all copies or substantial portions of the Software.
-// 
-// THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS 
-// OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, 
-// FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE 
-// AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER 
-// LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING 
-// FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER 
+//
+// THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS
+// OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+// FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+// AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+// LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
+// FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 // DEALINGS IN THE SOFTWARE.
 
 using System;
@@ -128,6 +128,11 @@ namespace Duplicati.Library.Main
         /// The default value for the number of volume downloaders during restore
         /// </summary>
         private readonly int DEFAULT_RESTORE_VOLUME_DOWNLOADERS = Math.Max(1, Environment.ProcessorCount / 2);
+
+        /// <summary>
+        /// The default value for the size of the channel buffers during restore
+        /// </summary>
+        private readonly int DEFAULT_RESTORE_CHANNEL_BUFFER_SIZE = 8;
 
         /// <summary>
         /// An enumeration that describes the supported strategies for an optimization
@@ -345,6 +350,7 @@ namespace Duplicati.Library.Main
                     new CommandLineArgument("upload-unchanged-backups", CommandLineArgument.ArgumentType.Boolean, Strings.Options.UploadUnchangedBackupsShort, Strings.Options.UploadUnchangedBackupsLong, "false"),
 
                     new CommandLineArgument("snapshot-policy", CommandLineArgument.ArgumentType.Enumeration, Strings.Options.SnapshotpolicyShort, Strings.Options.SnapshotpolicyLong, "off", null, Enum.GetNames(typeof(OptimizationStrategy))),
+                    new CommandLineArgument("snapshot-provider", CommandLineArgument.ArgumentType.Enumeration, Strings.Options.SnapshotproviderShort, Strings.Options.SnapshotproviderLong, OperatingSystem.IsWindows() ? Snapshots.SnapshotProvider.AlphaVSS.ToString() : Snapshots.SnapshotProvider.LVM.ToString(), null, (OperatingSystem.IsWindows() ? [Snapshots.SnapshotProvider.AlphaVSS, Snapshots.SnapshotProvider.Wmic] : new [] { Snapshots.SnapshotProvider.LVM }).Select(x => x.ToString()).ToArray()),
                     new CommandLineArgument("vss-exclude-writers", CommandLineArgument.ArgumentType.String, Strings.Options.VssexcludewritersShort, Strings.Options.VssexcludewritersLong, "{e8132975-6f93-4464-a53e-1050253ae220}"),
                     new CommandLineArgument("vss-use-mapping", CommandLineArgument.ArgumentType.Boolean, Strings.Options.VssusemappingShort, Strings.Options.VssusemappingLong, "false"),
                     new CommandLineArgument("usn-policy", CommandLineArgument.ArgumentType.Enumeration, Strings.Options.UsnpolicyShort, Strings.Options.UsnpolicyLong, "off", null, Enum.GetNames(typeof(OptimizationStrategy))),
@@ -474,6 +480,7 @@ namespace Duplicati.Library.Main
                     new CommandLineArgument("restore-volume-decompressors", CommandLineArgument.ArgumentType.Integer, Strings.Options.RestoreVolumeDecompressorsShort, Strings.Options.RestoreVolumeDecompressorsLong, DEFAULT_RESTORE_VOLUME_DECOMPRESSORS.ToString()),
                     new CommandLineArgument("restore-volume-decryptors", CommandLineArgument.ArgumentType.Integer, Strings.Options.RestoreVolumeDecryptorsShort, Strings.Options.RestoreVolumeDecryptorsLong, DEFAULT_RESTORE_VOLUME_DECRYPTORS.ToString()),
                     new CommandLineArgument("restore-volume-downloaders", CommandLineArgument.ArgumentType.Integer, Strings.Options.RestoreVolumeDownloadersShort, Strings.Options.RestoreVolumeDownloadersLong, DEFAULT_RESTORE_VOLUME_DOWNLOADERS.ToString()),
+                    new CommandLineArgument("restore-channel-buffer-size", CommandLineArgument.ArgumentType.Integer, Strings.Options.RestoreChannelBufferSizeShort, Strings.Options.RestoreChannelBufferSizeLong, DEFAULT_RESTORE_CHANNEL_BUFFER_SIZE.ToString()),
                     new CommandLineArgument("internal-profiling", CommandLineArgument.ArgumentType.Boolean, Strings.Options.InternalProfilingShort, Strings.Options.InternalProfilingLong, "false"),
                 });
 
@@ -1020,6 +1027,24 @@ namespace Duplicati.Library.Main
                 OptimizationStrategy r;
                 if (!Enum.TryParse(strategy, true, out r))
                     r = OptimizationStrategy.Off;
+
+                return r;
+            }
+        }
+
+        /// <summary>
+        /// Gets the snapshot strategy to use
+        /// </summary>
+        public Snapshots.SnapshotProvider SnapShotProvider
+        {
+            get
+            {
+                if (!m_options.TryGetValue("snapshot-provider", out var provider))
+                    provider = "";
+
+                Snapshots.SnapshotProvider r;
+                if (!Enum.TryParse(provider, true, out r))
+                    r = OperatingSystem.IsWindows() ? Snapshots.SnapshotProvider.AlphaVSS : Snapshots.SnapshotProvider.LVM;
 
                 return r;
             }
@@ -1687,7 +1712,7 @@ namespace Duplicati.Library.Main
         }
 
         /// <summary>
-        /// Gets a flag indicating if compacting should not be done automatically
+        /// Gets a flag indicating if missing source elements should be ignored
         /// </summary>
         public bool AllowMissingSource
         {
@@ -2057,7 +2082,7 @@ namespace Duplicati.Library.Main
         }
 
         /// <summary>
-        /// Gets the maximum number of data blocks to keep in the cache. If set to 0, the cache is disabled.
+        /// Gets the maximum number of data blocks to keep in the cache. If set to 0, the cache is effictively disabled, but some is still kept for bookkeeping.
         /// </summary>
         public long RestoreCacheMax
         {
@@ -2071,7 +2096,7 @@ namespace Duplicati.Library.Main
                 if (max_cache > 0 && max_cache < Blocksize)
                     throw new ArgumentOutOfRangeException(nameof(max_cache), string.Format("The maximum cache size cannot be less than the blocksize if not explicitly 0: {0} < {1}", max_cache, Blocksize));
 
-                return max_cache;
+                return max_cache / Blocksize;
             }
         }
 
@@ -2186,6 +2211,20 @@ namespace Duplicati.Library.Main
 
                 if (string.IsNullOrEmpty(v))
                     return DEFAULT_RESTORE_VOLUME_DOWNLOADERS;
+                else
+                    return int.Parse(v);
+            }
+        }
+
+        public int RestoreChannelBufferSize
+        {
+            get
+            {
+                if (!m_options.TryGetValue("restore-channel-buffer-size", out string v))
+                    v = null;
+
+                if (string.IsNullOrEmpty(v))
+                    return DEFAULT_RESTORE_CHANNEL_BUFFER_SIZE;
                 else
                     return int.Parse(v);
             }
