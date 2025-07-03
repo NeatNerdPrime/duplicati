@@ -97,7 +97,7 @@ namespace Duplicati.Library.Main
         /// <summary>
         /// The backends where throttling is disabled by default
         /// </summary>
-        private const string DEFAULT_THROTTLE_DISABLED_BACKENDS = "file";
+        private const string DEFAULT_THROTTLE_DISABLED_BACKENDS = "";
 
         /// <summary>
         /// The default retry delay
@@ -175,11 +175,6 @@ namespace Duplicati.Library.Main
         /// The default value for the size of the channel buffers during restore
         /// </summary>
         private static readonly int DEFAULT_RESTORE_CHANNEL_BUFFER_SIZE = Environment.ProcessorCount;
-
-        /// <summary>
-        /// The default value for the size of the SQLite page cache
-        /// </summary>
-        private static readonly string DEFAULT_SQLITE_PAGE_CACHE_SIZE = MemoryInfo.GetTotalMemoryString(0.01, SQLiteLoader.MINIMUM_SQLITE_PAGE_CACHE_SIZE); // 1% of the total memory
 
         /// <summary>
         /// An enumeration that describes the supported strategies for an optimization
@@ -390,7 +385,7 @@ namespace Duplicati.Library.Main
             new CommandLineArgument("throttle-upload", CommandLineArgument.ArgumentType.Size, Strings.Options.ThrottleuploadShort, Strings.Options.ThrottleuploadLong, "0kb"),
             new CommandLineArgument("throttle-download", CommandLineArgument.ArgumentType.Size, Strings.Options.ThrottledownloadShort, Strings.Options.ThrottledownloadLong, "0kb"),
             new CommandLineArgument("throttle-disabled", CommandLineArgument.ArgumentType.Boolean, Strings.Options.DisablethrottleShort, Strings.Options.DisablethrottleLong, "false"),
-            new CommandLineArgument("throttle-disabled-backends", CommandLineArgument.ArgumentType.String, Strings.Options.DisablethrottlebackendsShort, Strings.Options.DisablethrottlebackendsLong("disable-throttle"), DEFAULT_THROTTLE_DISABLED_BACKENDS),
+            new CommandLineArgument("throttle-disabled-backends", CommandLineArgument.ArgumentType.String, Strings.Options.DisablethrottlebackendsShort, Strings.Options.DisablethrottlebackendsLong("throttle-disabled"), DEFAULT_THROTTLE_DISABLED_BACKENDS),
             new CommandLineArgument("skip-files-larger-than", CommandLineArgument.ArgumentType.Size, Strings.Options.SkipfileslargerthanShort, Strings.Options.SkipfileslargerthanLong),
 
             new CommandLineArgument("upload-unchanged-backups", CommandLineArgument.ArgumentType.Boolean, Strings.Options.UploadUnchangedBackupsShort, Strings.Options.UploadUnchangedBackupsLong, "false"),
@@ -535,7 +530,6 @@ namespace Duplicati.Library.Main
             new CommandLineArgument("restore-volume-downloaders", CommandLineArgument.ArgumentType.Integer, Strings.Options.RestoreVolumeDownloadersShort, Strings.Options.RestoreVolumeDownloadersLong, DEFAULT_RESTORE_VOLUME_DOWNLOADERS.ToString()),
             new CommandLineArgument("restore-channel-buffer-size", CommandLineArgument.ArgumentType.Integer, Strings.Options.RestoreChannelBufferSizeShort, Strings.Options.RestoreChannelBufferSizeLong, DEFAULT_RESTORE_CHANNEL_BUFFER_SIZE.ToString()),
             new CommandLineArgument("internal-profiling", CommandLineArgument.ArgumentType.Boolean, Strings.Options.InternalProfilingShort, Strings.Options.InternalProfilingLong, "false"),
-            new CommandLineArgument("sqlite-page-cache", CommandLineArgument.ArgumentType.Size, Strings.Options.SqlitePageCacheShort, Strings.Options.SqlitePageCacheLong(SQLiteLoader.MINIMUM_SQLITE_PAGE_CACHE_SIZE), DEFAULT_SQLITE_PAGE_CACHE_SIZE),
             new CommandLineArgument("ignore-update-if-version-exists", CommandLineArgument.ArgumentType.Boolean, Strings.Options.IgnoreUpdateIfVersionExistsShort, Strings.Options.IgnoreUpdateIfVersionExistsLong, "false"),
         ];
 
@@ -1699,19 +1693,6 @@ namespace Duplicati.Library.Main
         /// </summary>
         public bool InternalProfiling => GetBool("internal-profiling");
 
-        /// <summary>
-        /// Gets the size of file-blocks
-        /// </summary>
-        public long SqlitePageCache
-        {
-            get
-            {
-                var pagesize = GetSize("sqlite-page-cache", "kb", DEFAULT_SQLITE_PAGE_CACHE_SIZE);
-                return pagesize <= SQLiteLoader.MINIMUM_SQLITE_PAGE_CACHE_SIZE
-                    ? 0
-                    : pagesize;
-            }
-        }
         /// <summary>
         /// Ignores the update if the version already exists in the database.
         /// </summary>

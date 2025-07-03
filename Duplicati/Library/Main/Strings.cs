@@ -64,7 +64,7 @@ namespace Duplicati.Library.Main.Strings
         public static string ThrottleuploadShort { get { return LC.L(@"Max number of kilobytes to upload pr. second"); } }
         public static string DisablethrottleLong { get { return LC.L(@"Disable the throttling of upload and download speeds for this task. If there is a throttle set, it will be ignored when running this task."); } }
         public static string DisablethrottleShort { get { return LC.L(@"Disable throttling"); } }
-        public static string DisablethrottlebackendsLong(string option) { return LC.L(@"Disable the throttling of upload and download speeds for specific backends. If there is a throttle set, it will be ignore when running this task, if the backend is one of the specified backends. Multiple backends can be specified with a comma separator. This option has no effect if there is no throttle or if --{0} is set", option); }
+        public static string DisablethrottlebackendsLong(string option) { return LC.L(@"Disable the throttling of upload and download speeds for specific backends. If there is a throttle set, it will be ignored when running this task, if the backend is one of the specified backends. Multiple backends can be specified with a comma separator. This option has no effect if there is no throttle or if --{0} is set", option); }
         public static string DisablethrottlebackendsShort { get { return LC.L(@"Disable throttling for specific backends"); } }
         public static string NoencryptionLong { get { return LC.L(@"If you store the backups on a local disk, and prefer that they are kept unencrypted, you can turn of encryption completely by using this switch."); } }
         public static string NoencryptionShort { get { return LC.L(@"Disable encryption"); } }
@@ -364,8 +364,6 @@ namespace Duplicati.Library.Main.Strings
         public static string RestoreChannelBufferSizeLong { get { return LC.L("Use this option to set the size of the buffers of the channels used during restore. The buffers are used to allow for better asynchronous communication between the processes in the restore flow. Increasing the buffer size may improve restore performance."); } }
         public static string InternalProfilingShort { get { return LC.L("Enable internal profiling"); } }
         public static string InternalProfilingLong { get { return LC.L("Use this option to enable internal profiling. Profiling is used to measure the performance of the internal code. The profiling data is written to the log file and can be used to identify performance bottlenecks."); } }
-        public static string SqlitePageCacheShort { get { return LC.L("Size of the SQLite page cache"); } }
-        public static string SqlitePageCacheLong(long minimumvalue) { return LC.L("Use this option to set the size of the SQLite page cache. The page cache is used to store the pages of the database in memory. Increasing the page cache size may improve performance, but will also increase memory usage. If the supplied value is the same or less than {0} bytes, the default SQLite cache value is used.", minimumvalue); }
         public static string IgnoreUpdateIfVersionExistsShort { get { return LC.L("Ignore update if version exists"); } }
         public static string IgnoreUpdateIfVersionExistsLong { get { return LC.L("Use this option to ignore the update if the version already exists. This can be used to avoid errors if asking to update the database with a version that already exists."); } }
     }
