@@ -40,7 +40,7 @@ namespace Duplicati.Library.Main.Backend
         private readonly bool _autoCreateFolders;
         private readonly string _backendUrl;
         private readonly int _maxRetries;
-        private readonly Dictionary<string, string> _options;
+        private readonly Dictionary<string, string?> _options;
         private readonly int _retryDelay;
         private readonly bool _retryWithExponentialBackoff;
         private int _currentRetryDelay;
@@ -48,11 +48,11 @@ namespace Duplicati.Library.Main.Backend
         private readonly IOperationProgressUpdater? _progressUpdater;
         private readonly IBackendProgressUpdater? _backendProgressUpdater;
 
-        public LightWeightBackendManager(string backendUrl, Dictionary<string, string> options, int maxRetries = 3, int retryDelay = 1000, bool autoCreateFolders = false, bool retryWithExponentialBackoff = false)
+        public LightWeightBackendManager(string backendUrl, Dictionary<string, string?> options, int maxRetries = 3, int retryDelay = 1000, bool autoCreateFolders = false, bool retryWithExponentialBackoff = false)
             : this(backendUrl, options, maxRetries, retryDelay, autoCreateFolders, retryWithExponentialBackoff, null, null)
         { }
 
-        internal LightWeightBackendManager(string backendUrl, Dictionary<string, string> options, int maxRetries = 3, int retryDelay = 1000, bool autoCreateFolders = false, bool retryWithExponentialBackoff = false, IOperationProgressUpdater? progressUpdater = null, IBackendProgressUpdater? backendProgressUpdater = null)
+        internal LightWeightBackendManager(string backendUrl, Dictionary<string, string?> options, int maxRetries = 3, int retryDelay = 1000, bool autoCreateFolders = false, bool retryWithExponentialBackoff = false, IOperationProgressUpdater? progressUpdater = null, IBackendProgressUpdater? backendProgressUpdater = null)
         {
             _backendUrl = backendUrl;
             _maxRetries = maxRetries;
