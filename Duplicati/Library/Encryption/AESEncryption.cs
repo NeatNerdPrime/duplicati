@@ -140,6 +140,10 @@ namespace Duplicati.Library.Encryption
                     InsertPlaceholder = false
                 };
 
+            // Until the next stable release, use version 2 by default
+            if (version == null)
+                version = 2;
+
             if (version.HasValue)
                 encOpts = encOpts with { FileVersion = (byte)version.Value };
             if (iterations.HasValue)
