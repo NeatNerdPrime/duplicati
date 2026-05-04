@@ -197,9 +197,10 @@ public static class RemoteSynchronizationRunner
 
         // Prepare the operations
         var (to_copy, to_delete, to_verify) = await PrepareFileLists(b1m, b2m, config, token).ConfigureAwait(false);
+        var disableQuota = Library.Utility.Utility.ParseBoolOption(dst_opts, "quota-disable");
 
         // Check if we have enough free space in the destination to perform the synchronization.
-        var dst_quota = await b2m.GetQuotaInfoAsync(token).ConfigureAwait(false);
+        var dst_quota = disableQuota ? null : await b2m.GetQuotaInfoAsync(token).ConfigureAwait(false);
         if (dst_quota is not null)
         {
             var total_delete_size = to_delete.Sum(x => Math.Max(x.Size, 0));
@@ -210,7 +211,7 @@ public static class RemoteSynchronizationRunner
                     "Not enough free space in destination to perform the synchronization. Required: {0}, Available: {1}. Aborting.",
                     Duplicati.Library.Utility.Utility.FormatSizeString(total_copy_size - total_delete_size),
                     Duplicati.Library.Utility.Utility.FormatSizeString(dst_quota.FreeQuotaSpace));
-                throw new Exception("Not enough free space in destination to perform the synchronization.");
+                throw new UserInformationException("Not enough free space in destination to perform the synchronization.", "NotEnoughDestinationSpace");
             }
         }
 
@@ -652,11 +653,11 @@ public static class RemoteSynchronizationRunner
     /// <param name="options">The list of string options to parse</param>
     /// <returns>A dictionary with the parsed options, where the key is the option name and the value is the option value.</returns>
     /// <exception cref="ArgumentException">If an option was not parsed correctly.</exception>
-    private static Dictionary<string, string> ParseOptions(IEnumerable<string> options)
+    private static Dictionary<string, string?> ParseOptions(IEnumerable<string> options)
     {
         var result = options
             .Select(x => x.Split('='))
-            .ToDictionary(x => x[0], x => string.Join("=", x.Skip(1)));
+            .ToDictionary(x => x[0], x => (string?)string.Join("=", x.Skip(1)));
 
         // Double check that the options are valid by reconstructing them from the dictionary
         foreach (var opt in result.Select(x => $"{x.Key}={x.Value}"))
