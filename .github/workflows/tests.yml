@@ -10,6 +10,8 @@ jobs:
   unit_tests:
     name: Unit tests
     runs-on: ${{ matrix.os }}
+    env:
+      DUPLICATI__AES_V3_ITERATIONS: 10000
     strategy:
       fail-fast: false
       matrix:
@@ -46,6 +48,8 @@ jobs:
   integration_tests:
     name: Integration tests
     runs-on: ${{ matrix.os }}
+    env:
+      DUPLICATI__AES_V3_ITERATIONS: 10000
     strategy:
       fail-fast: false
       matrix:
