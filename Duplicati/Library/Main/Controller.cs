@@ -122,6 +122,13 @@ namespace Duplicati.Library.Main
             UsageReporter.Reporter.Report("USE_COMPRESSION", m_options.CompressionModule);
             UsageReporter.Reporter.Report("USE_ENCRYPTION", m_options.EncryptionModule);
 
+            // Warn about experimental tar-based compression modules
+            if (m_options.CompressionModule.Equals("tzstd", StringComparison.OrdinalIgnoreCase) ||
+                m_options.CompressionModule.Equals("tgz", StringComparison.OrdinalIgnoreCase))
+            {
+                Logging.Log.WriteWarningMessage(LOGTAG, "ExperimentalCompressionModule", null, $"The compression module '{m_options.CompressionModule}' is experimental and for testing only.");
+            }
+
             CheckAutoCompactInterval();
             CheckAutoVacuumInterval();
 

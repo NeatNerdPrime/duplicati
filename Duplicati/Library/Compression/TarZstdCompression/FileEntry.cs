@@ -19,19 +19,16 @@
 // FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER 
 // DEALINGS IN THE SOFTWARE.
 
-using System.Collections.Generic;
-using Duplicati.Library.Interface;
+using System;
 
-namespace Duplicati.Library.Compression;
+namespace Duplicati.Library.Compression.TarZstdCompression;
 
-public static class CompressionModules
-{
-    /// <summary>
-    /// The list of all built-in compression modules
-    /// </summary>
-    public static IReadOnlyList<ICompression> BuiltInCompressionModules => [
-        new ZipCompression.FileArchiveZip(),
-        new TarZstdCompression.FileArchiveTarZstd(),
-        new TarZstdCompression.FileArchiveTarGzip()
-    ];
-}
+/// <summary>
+/// Represents a file entry in the tar archive with its metadata
+/// </summary>
+public sealed record FileEntry(
+    string Name,
+    long Offset,
+    long Size,
+    DateTime LastWriteTime
+);

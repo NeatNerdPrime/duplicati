@@ -19,19 +19,35 @@
 // FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER 
 // DEALINGS IN THE SOFTWARE.
 
-using System.Collections.Generic;
-using Duplicati.Library.Interface;
+namespace Duplicati.Library.Compression.TarZstdCompression;
 
-namespace Duplicati.Library.Compression;
-
-public static class CompressionModules
+/// <summary>
+/// Constants for the Tar-based file formats
+/// </summary>
+public static class TarBaseConstants
 {
     /// <summary>
-    /// The list of all built-in compression modules
+    /// EOF header file name
     /// </summary>
-    public static IReadOnlyList<ICompression> BuiltInCompressionModules => [
-        new ZipCompression.FileArchiveZip(),
-        new TarZstdCompression.FileArchiveTarZstd(),
-        new TarZstdCompression.FileArchiveTarGzip()
-    ];
+    public const string EofHeaderFileName = ".eof-header";
+
+    /// <summary>
+    /// Magic string at the end of the EOF header (6 bytes)
+    /// </summary>
+    public const string EofHeaderMagic = "EOFHD1";
+
+    /// <summary>
+    /// Size of the EOF header magic string
+    /// </summary>
+    public const int EofHeaderMagicSize = 6;
+
+    /// <summary>
+    /// Size of the offset field (8 bytes, long)
+    /// </summary>
+    public const int EofHeaderOffsetSize = 8;
+
+    /// <summary>
+    /// Total size of the EOF header trailer (magic + offset)
+    /// </summary>
+    public const int EofHeaderTrailerSize = EofHeaderMagicSize + EofHeaderOffsetSize;
 }
