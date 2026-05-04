@@ -211,7 +211,7 @@ public static class RemoteSynchronizationRunner
                     "Not enough free space in destination to perform the synchronization. Required: {0}, Available: {1}. Aborting.",
                     Duplicati.Library.Utility.Utility.FormatSizeString(total_copy_size - total_delete_size),
                     Duplicati.Library.Utility.Utility.FormatSizeString(dst_quota.FreeQuotaSpace));
-                throw new Exception("Not enough free space in destination to perform the synchronization.");
+                throw new UserInformationException("Not enough free space in destination to perform the synchronization.", "NotEnoughDestinationSpace");
             }
         }
 
