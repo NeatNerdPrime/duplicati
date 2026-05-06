@@ -107,7 +107,7 @@ namespace Duplicati.Library.Main.Database
                     .SetParameterValue("@StartPath", !OperatingSystem.IsWindows() ? "/" : "X:\\")
                     .SetParameterValue("@DirSep", Util.DirectorySeparatorString)
                     .SetParameterValue("@FileExt", ".bin")
-                    .ExecuteNonQueryAsync(token)
+                    .ExecuteNonQueryAsync(true, token)
                     .ConfigureAwait(false);
 
                 /*long id = 1;

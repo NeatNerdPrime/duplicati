@@ -134,7 +134,7 @@ namespace Duplicati.Library.Main.Database
                         .ExpandInClauseParameterMssqliteAsync("@Timestamps", tempTable, token)
                         .ConfigureAwait(false)
                 )
-                    .ExecuteNonQueryAsync(token)
+                    .ExecuteNonQueryAsync(true, token)
                     .ConfigureAwait(false);
 
             if (deleted != toDelete.Length)
@@ -267,7 +267,7 @@ namespace Duplicati.Library.Main.Database
                         RemoteVolumeState.Temporary.ToString(),
                         RemoteVolumeState.Deleting.ToString()
                 ])
-                .ExecuteNonQueryAsync(token)
+                .ExecuteNonQueryAsync(true, token)
                 .ConfigureAwait(false);
 
             if (deleted != updated)
@@ -540,7 +540,7 @@ namespace Duplicati.Library.Main.Database
                         RemoteVolumeState.Uploaded.ToString(),
                             RemoteVolumeState.Verified.ToString()
                     ])
-                    .ExecuteNonQueryAsync(token)
+                    .ExecuteNonQueryAsync(true, token)
                     .ConfigureAwait(false);
 
                 cmd.SetCommandAndParameters($@"
@@ -901,7 +901,7 @@ namespace Duplicati.Library.Main.Database
                 .SetParameterValue("@VolumeId", volumeID)
                 .SetParameterValue("@Hash", hash)
                 .SetParameterValue("@Size", size)
-                .ExecuteNonQueryAsync(token)
+                .ExecuteNonQueryAsync(true, token)
                 .ConfigureAwait(false);
         }
 
@@ -931,7 +931,7 @@ namespace Duplicati.Library.Main.Database
                         WHERE ""VolumeID"" = @VolumeId
                     ")
                     .SetParameterValue("@VolumeId", deletedVolume.ID)
-                    .ExecuteNonQueryAsync(token)
+                    .ExecuteNonQueryAsync(true, token)
                     .ConfigureAwait(false);
 
                 await using (var tempTable = await TemporaryDbValueList.CreateAsync(this, volumeIdsToBeRemoved, token).ConfigureAwait(false))
@@ -953,7 +953,7 @@ namespace Duplicati.Library.Main.Database
                         .ExpandInClauseParameterMssqliteAsync("@VolumeIds", tempTable, token)
                         .ConfigureAwait(false)
                     )
-                        .ExecuteNonQueryAsync(token)
+                        .ExecuteNonQueryAsync(true, token)
                         .ConfigureAwait(false);
 
                 var targetCount = await cmd.ExecuteScalarInt64Async($@"
@@ -984,7 +984,7 @@ namespace Duplicati.Library.Main.Database
                         AND ""Block"".""ID"" IN (SELECT ""BlockID"" FROM ""{replacementBlocks}"")
                     ")
                     .SetParameterValue("@VolumeId", deletedVolume.ID)
-                    .ExecuteNonQueryAsync(token)
+                    .ExecuteNonQueryAsync(true, token)
                     .ConfigureAwait(false);
 
                 var deleteCount = await cmd.ExecuteNonQueryAsync(@$"
@@ -1017,7 +1017,7 @@ namespace Duplicati.Library.Main.Database
                         WHERE ""VolumeID"" = @VolumeId
                     ")
                     .SetParameterValue("@VolumeId", deletedVolume.ID)
-                    .ExecuteNonQueryAsync(token)
+                    .ExecuteNonQueryAsync(true, token)
                     .ConfigureAwait(false);
             }
             finally

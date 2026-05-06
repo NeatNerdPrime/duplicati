@@ -36,6 +36,10 @@ namespace Duplicati.Library.Main.Database
     /// </summary>
     internal class LocalListChangesDatabase : LocalDatabase
     {
+        /// <summary>
+        /// The log tag for this class.
+        /// </summary>
+        private static readonly string LOGTAG = Logging.Log.LogTagFromType<LocalListChangesDatabase>();
 
         /// <summary>
         /// Creates a new instance of the <see cref="LocalListChangesDatabase"/> class.
@@ -70,9 +74,10 @@ namespace Duplicati.Library.Main.Database
             /// <param name="size">The size of the file or folder.</param>
             /// <param name="type">The type of the element (file, folder, symlink).</param>
             /// <param name="asNew">If true, adds to the current table; otherwise, adds to the previous table.</param>
+            /// <param name="logQuery">If true, logs the SQL query.</param>
             /// <param name="token">A cancellation token to cancel the operation.</param>
             /// <returns>A task that completes when the element is added.</returns>
-            Task AddElement(string path, string filehash, string metahash, long size, Interface.ListChangesElementType type, bool asNew, CancellationToken token);
+            Task AddElement(string path, string filehash, string metahash, long size, Interface.ListChangesElementType type, bool asNew, bool logQuery, CancellationToken token);
 
             /// <summary>
             /// Adds elements from the database to the temporary storage.
@@ -419,7 +424,7 @@ namespace Duplicati.Library.Main.Database
                             WHERE ""A"".""FilesetID"" = @FilesetId
                         ")
                         .SetParameterValue("@FilesetId", filesetId)
-                        .ExecuteNonQueryAsync(token)
+                        .ExecuteNonQueryAsync(true, token)
                         .ConfigureAwait(false);
                 }
                 else if (Library.Utility.Utility.IsFSCaseSensitive && filter is FilterExpression expression && expression.Type == Duplicati.Library.Utility.FilterType.Simple)
@@ -443,11 +448,12 @@ namespace Duplicati.Library.Main.Database
                         .PrepareAsync(token)
                         .ConfigureAwait(false);
 
-                    foreach (var s in p)
-                        await cmd
-                            .SetParameterValue("@Path", s)
-                            .ExecuteNonQueryAsync(token)
-                            .ConfigureAwait(false);
+                    using (new Logging.Timer(LOGTAG, "AddFromDb", $"Inserting {p.Length} paths into {filenamestable}"))
+                        foreach (var s in p)
+                            await cmd
+                                .SetParameterValue("@Path", s)
+                                .ExecuteNonQueryAsync(token) // Not logging as we log the total time
+                                .ConfigureAwait(false);
 
                     string whereClause;
                     if (expression.Result)
@@ -490,7 +496,7 @@ namespace Duplicati.Library.Main.Database
                             WHERE {whereClause}
                         ")
                         .SetParameterValue("@FilesetId", filesetId)
-                        .ExecuteNonQueryAsync(token)
+                        .ExecuteNonQueryAsync(true, token)
                         .ConfigureAwait(false);
 
                     await cmd
@@ -538,27 +544,28 @@ namespace Duplicati.Library.Main.Database
                         .ExecuteReaderAsync(token)
                         .ConfigureAwait(false);
 
-                    while (await rd.ReadAsync(token).ConfigureAwait(false))
-                    {
-                        rd.GetValues(values);
-                        var path = values[0] as string;
-                        if (path != null && FilterExpression.Matches(filter, path.ToString()))
+                    using (new Logging.Timer(LOGTAG, "AddFromDb", $"Evaluating paths and updating table"))
+                        while (await rd.ReadAsync(token).ConfigureAwait(false))
                         {
-                            await cmd2
-                                .SetParameterValue("@Path", values[0])
-                                .SetParameterValue("@FileHash", values[1])
-                                .SetParameterValue("@MetaHash", values[2])
-                                .SetParameterValue("@Size", values[3])
-                                .SetParameterValue("@Type", values[4])
-                                .ExecuteNonQueryAsync(token)
-                                .ConfigureAwait(false);
+                            rd.GetValues(values);
+                            var path = values[0] as string;
+                            if (path != null && FilterExpression.Matches(filter, path.ToString()))
+                            {
+                                await cmd2
+                                    .SetParameterValue("@Path", values[0])
+                                    .SetParameterValue("@FileHash", values[1])
+                                    .SetParameterValue("@MetaHash", values[2])
+                                    .SetParameterValue("@Size", values[3])
+                                    .SetParameterValue("@Type", values[4])
+                                    .ExecuteNonQueryAsync(token) // Not logging as we log the total time
+                                    .ConfigureAwait(false);
+                            }
                         }
-                    }
                 }
             }
 
             /// <inheritdoc/>
-            public async Task AddElement(string path, string filehash, string metahash, long size, Interface.ListChangesElementType type, bool asNew, CancellationToken token)
+            public async Task AddElement(string path, string filehash, string metahash, long size, Interface.ListChangesElementType type, bool asNew, bool logQuery, CancellationToken token)
             {
                 var cmd = asNew ? m_insertCurrentElementCommand : m_insertPreviousElementCommand;
                 await cmd
@@ -567,7 +574,7 @@ namespace Duplicati.Library.Main.Database
                     .SetParameterValue("@MetaHash", metahash)
                     .SetParameterValue("@Size", size)
                     .SetParameterValue("@Type", (int)type)
-                    .ExecuteNonQueryAsync(token)
+                    .ExecuteNonQueryAsync(logQuery, token)
                     .ConfigureAwait(false);
             }
 

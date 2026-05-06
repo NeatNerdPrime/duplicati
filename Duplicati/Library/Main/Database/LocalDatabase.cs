@@ -653,7 +653,7 @@ namespace Duplicati.Library.Main.Database
                 .SetParameterValue("@Hash", hash)
                 .SetParameterValue("@Size", size)
                 .SetParameterValue("@Name", name)
-                .ExecuteNonQueryAsync(token)
+                .ExecuteNonQueryAsync(true, token)
                 .ConfigureAwait(false);
 
             if (c != 1)
@@ -673,7 +673,7 @@ namespace Duplicati.Library.Main.Database
                 c = await cmd.SetTransaction(m_rtr)
                     .SetParameterValue("@DeleteGraceTime", Library.Utility.Utility.NormalizeDateTimeToEpochSeconds(DateTime.UtcNow + deleteGraceTime))
                     .SetParameterValue("@Name", name)
-                    .ExecuteNonQueryAsync(token)
+                    .ExecuteNonQueryAsync(true, token)
                     .ConfigureAwait(false);
 
                 if (c != 1)
@@ -692,7 +692,7 @@ namespace Duplicati.Library.Main.Database
                 c = await cmd.SetTransaction(m_rtr)
                     .SetParameterValue("@ArchiveTime", setArchived.Value ? Library.Utility.Utility.NormalizeDateTimeToEpochSeconds(DateTime.UtcNow) : 0)
                     .SetParameterValue("@Name", name)
-                    .ExecuteNonQueryAsync(token)
+                    .ExecuteNonQueryAsync(true, token)
                     .ConfigureAwait(false);
 
                 if (c != 1)
@@ -936,7 +936,7 @@ namespace Duplicati.Library.Main.Database
                 .SetParameterValue("@Operation", operation)
                 .SetParameterValue("@Path", path)
                 .SetParameterValue("@Data", data)
-                .ExecuteNonQueryAsync(token)
+                .ExecuteNonQueryAsync(true, token)
                 .ConfigureAwait(false);
         }
 
@@ -957,7 +957,7 @@ namespace Duplicati.Library.Main.Database
                 .SetParameterValue("@Type", type)
                 .SetParameterValue("@Message", message)
                 .SetParameterValue("@Exception", exception?.ToString())
-                .ExecuteNonQueryAsync(token)
+                .ExecuteNonQueryAsync(true, token)
                 .ConfigureAwait(false);
         }
 
@@ -983,7 +983,7 @@ namespace Duplicati.Library.Main.Database
             var c = await cmd.SetTransaction(m_rtr)
                 .SetParameterValue("@Name", name)
                 .SetParameterValue("@State", state.ToString())
-                .ExecuteNonQueryAsync(token)
+                .ExecuteNonQueryAsync(true, token)
                 .ConfigureAwait(false);
 
             if (c != 1)
@@ -1053,7 +1053,7 @@ namespace Duplicati.Library.Main.Database
             await deletecmd.ExpandInClauseParameterMssqliteAsync("@VolumeNames", tmptable, token)
                 .ConfigureAwait(false);
             await deletecmd
-                .ExecuteNonQueryAsync(token)
+                .ExecuteNonQueryAsync(true, token)
                 .ConfigureAwait(false);
 
             var volIdsSubQuery = $@"
@@ -1299,7 +1299,7 @@ namespace Duplicati.Library.Main.Database
                         RemoteVolumeState.Verified.ToString(),
                         RemoteVolumeState.Temporary.ToString()
                     ])
-                .ExecuteNonQueryAsync(token)
+                .ExecuteNonQueryAsync(true, token)
                 .ConfigureAwait(false);
 
             await deletecmd.ExecuteNonQueryAsync($@"
@@ -1340,14 +1340,14 @@ namespace Duplicati.Library.Main.Database
                 .SetTransaction(m_rtr)
                 .SetParameterValue("@Now", Library.Utility.Utility.NormalizeDateTimeToEpochSeconds(DateTime.UtcNow))
                 .SetParameterValue("@State", RemoteVolumeState.Deleted.ToString());
-            foreach (var name in names)
-            {
-                await m_removeremotevolumeCommand
-                    .SetTransaction(m_rtr)
-                    .SetParameterValue("@Name", name)
-                    .ExecuteNonQueryAsync(token)
-                    .ConfigureAwait(false);
-            }
+
+            using (new Logging.Timer(LOGTAG, "RemoveRemoteVolumes", "Removing remote volumes"))
+                foreach (var name in names)
+                    await m_removeremotevolumeCommand
+                        .SetTransaction(m_rtr)
+                        .SetParameterValue("@Name", name)
+                        .ExecuteNonQueryAsync(token) // Not logging because we log the whole operation
+                        .ConfigureAwait(false);
 
             // Validate before commiting changes
             var nonAttachedFiles = await deletecmd.ExecuteScalarInt64Async(@"
@@ -1695,9 +1695,10 @@ namespace Duplicati.Library.Main.Database
             ", token)
                 .ConfigureAwait(false);
 
-            foreach (var kp in options)
-            {
-                await cmd.SetCommandAndParameters(@"
+            using (new Logging.Timer(LOGTAG, "SetDbOptions", "Setting database options"))
+                foreach (var kp in options)
+                {
+                    await cmd.SetCommandAndParameters(@"
                     INSERT INTO ""Configuration"" (
                         ""Key"",
                         ""Value""
@@ -1707,11 +1708,11 @@ namespace Duplicati.Library.Main.Database
                         @Value
                     )
                 ")
-                    .SetParameterValue("@Key", kp.Key)
-                    .SetParameterValue("@Value", kp.Value)
-                    .ExecuteNonQueryAsync(token)
-                    .ConfigureAwait(false);
-            }
+                        .SetParameterValue("@Key", kp.Key)
+                        .SetParameterValue("@Value", kp.Value)
+                        .ExecuteNonQueryAsync(token) // Not logging, as we log the whole operation
+                        .ConfigureAwait(false);
+                }
         }
 
         /// <summary>
@@ -2598,7 +2599,7 @@ namespace Duplicati.Library.Main.Database
             var c = await cmd.SetTransaction(m_rtr)
                 .SetParameterValue("@VolumeId", volumeid)
                 .SetParameterValue("@FilesetId", filesetid)
-                .ExecuteNonQueryAsync(token)
+                .ExecuteNonQueryAsync(true, token)
                 .ConfigureAwait(false);
 
             if (c != 1)
@@ -2635,7 +2636,7 @@ namespace Duplicati.Library.Main.Database
 
             await cmd.SetTransaction(m_rtr)
                 .SetParameterValue("@FilesetId", filesetId)
-                .ExecuteNonQueryAsync(token)
+                .ExecuteNonQueryAsync(true, token)
                 .ConfigureAwait(false);
         }
 
@@ -2698,7 +2699,7 @@ namespace Duplicati.Library.Main.Database
                         .ConfigureAwait(false);
 
                     await cmd.SetTransaction(db.Transaction)
-                        .ExecuteNonQueryAsync(token)
+                        .ExecuteNonQueryAsync(true, token)
                         .ConfigureAwait(false);
 
                     return ftt;
@@ -2715,7 +2716,7 @@ namespace Duplicati.Library.Main.Database
                         .ConfigureAwait(false);
 
                     await cmd.SetTransaction(db.Transaction)
-                        .ExecuteNonQueryAsync(token)
+                        .ExecuteNonQueryAsync(true, token)
                         .ConfigureAwait(false);
 
                     cmd.SetCommandAndParameters($@"
@@ -2730,6 +2731,7 @@ namespace Duplicati.Library.Main.Database
                         .ConfigureAwait(false);
 
                     c2.SetTransaction(db.Transaction);
+                    using (new Logging.Timer(LOGTAG, "CreateFilteredFilenameTable", "Filtering paths"))
                     await using (var rd = await c2.ExecuteReaderAsync(token).ConfigureAwait(false))
                         while (await rd.ReadAsync(token).ConfigureAwait(false))
                         {
@@ -2738,7 +2740,7 @@ namespace Duplicati.Library.Main.Database
                             {
                                 await cmd
                                     .SetParameterValue("@Path", p)
-                                    .ExecuteNonQueryAsync(token)
+                                    .ExecuteNonQueryAsync(token) // Not logging as we log the whole operation
                                     .ConfigureAwait(false);
                             }
                         }
@@ -2833,7 +2835,7 @@ namespace Duplicati.Library.Main.Database
             var c = await cmd.SetTransaction(m_rtr)
                 .SetParameterValue("@Newname", newname)
                 .SetParameterValue("@Oldname", oldname)
-                .ExecuteNonQueryAsync(token)
+                .ExecuteNonQueryAsync(true, token)
                 .ConfigureAwait(false);
 
             if (c != 1)
@@ -2848,7 +2850,7 @@ namespace Duplicati.Library.Main.Database
                         WHERE ""Name"" = @Name
                     ")
                     .SetParameterValue("@Name", newname)
-                    .ExecuteScalarAsync(token)
+                    .ExecuteScalarAsync(true, token)
                     .ConfigureAwait(false)
                 )?.ToString() ?? "",
                 true
@@ -2926,7 +2928,7 @@ namespace Duplicati.Library.Main.Database
                 .SetTransaction(m_rtr)
                 .SetParameterValue("@IndexVolumeId", indexVolumeID)
                 .SetParameterValue("@BlockVolumeId", blockVolumeID)
-                .ExecuteNonQueryAsync(token)
+                .ExecuteNonQueryAsync(true, token)
                 .ConfigureAwait(false);
         }
 
@@ -3045,7 +3047,7 @@ namespace Duplicati.Library.Main.Database
             await cmd.SetTransaction(m_rtr)
                 .SetParameterValue("@FilesetId", fileSetId)
                 .SetParameterValue("@IsFullBackup", isFullBackup ? BackupType.FULL_BACKUP : BackupType.PARTIAL_BACKUP)
-                .ExecuteNonQueryAsync(token)
+                .ExecuteNonQueryAsync(true, token)
                 .ConfigureAwait(false);
         }
 
@@ -3065,7 +3067,7 @@ namespace Duplicati.Library.Main.Database
 
             await cmd.SetTransaction(m_rtr)
                 .SetParameterValue("@FilesetId", filesetId)
-                .ExecuteNonQueryAsync(token)
+                .ExecuteNonQueryAsync(true, token)
                 .ConfigureAwait(false);
         }
 
@@ -3197,7 +3199,7 @@ namespace Duplicati.Library.Main.Database
                 WHERE ""Timestamp"" < @Timestamp
             ")
                 .SetParameterValue("@Timestamp", t)
-                .ExecuteNonQueryAsync(token)
+                .ExecuteNonQueryAsync(true, token)
                 .ConfigureAwait(false);
 
             await cmd.SetCommandAndParameters(@"
@@ -3205,7 +3207,7 @@ namespace Duplicati.Library.Main.Database
                 WHERE ""Timestamp"" < @Timestamp
             ")
                 .SetParameterValue("@Timestamp", t)
-                .ExecuteNonQueryAsync(token)
+                .ExecuteNonQueryAsync(true, token)
                 .ConfigureAwait(false);
 
             await m_rtr.CommitAsync(token: token).ConfigureAwait(false);
@@ -3221,7 +3223,7 @@ namespace Duplicati.Library.Main.Database
             await m_removedeletedremotevolumeCommand
                 .SetTransaction(m_rtr)
                 .SetParameterValue("@Now", Library.Utility.Utility.NormalizeDateTimeToEpochSeconds(threshold))
-                .ExecuteNonQueryAsync(token)
+                .ExecuteNonQueryAsync(true, token)
                 .ConfigureAwait(false);
 
             await m_rtr.CommitAsync(token: token).ConfigureAwait(false);

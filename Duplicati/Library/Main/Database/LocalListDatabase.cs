@@ -368,7 +368,7 @@ namespace Duplicati.Library.Main.Database
                             WHERE SUBSTR(""Path"", 1, {Library.Utility.Utility.FormatInvariantValue(prefixrule.Length)}) != @Rule
                         ")
                         .SetParameterValue("@Rule", prefixrule)
-                        .ExecuteNonQueryAsync(token)
+                        .ExecuteNonQueryAsync(true, token)
                         .ConfigureAwait(false);
 
                 // Then we recursively find the largest prefix
@@ -563,11 +563,12 @@ namespace Duplicati.Library.Main.Database
                                 VALUES (@Path)
                             ");
 
-                        await foreach (var n in SelectFolderEntries(cmd, pathprefix, tmpnames.Tablename, token).Distinct().ConfigureAwait(false))
-                            await c2
-                                .SetParameterValue("@Path", n)
-                                .ExecuteNonQueryAsync(token)
-                                .ConfigureAwait(false);
+                        using (new Logging.Timer(LOGTAG, "ListFolderContents", "Inserting paths into table"))
+                            await foreach (var n in SelectFolderEntries(cmd, pathprefix, tmpnames.Tablename, token).Distinct().ConfigureAwait(false))
+                                await c2
+                                    .SetParameterValue("@Path", n)
+                                    .ExecuteNonQueryAsync(token) // Not logging as we log the total time
+                                    .ConfigureAwait(false);
 
                         await c2.ExecuteNonQueryAsync($@"
                                 CREATE INDEX ""{tbname}_PathIndex""

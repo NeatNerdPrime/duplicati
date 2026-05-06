@@ -143,7 +143,7 @@ namespace Duplicati.Library.Main.Database
                 .SetParameterValue("@CurrentFilesetId", filesetid)
                 .SetParameterValue("@PreviousFilesetId", prevFilesetId);
 
-            await cmd.ExecuteNonQueryAsync(token).ConfigureAwait(false);
+            await cmd.ExecuteNonQueryAsync(true, token).ConfigureAwait(false);
         }
 
         /// <summary>
@@ -220,7 +220,7 @@ namespace Duplicati.Library.Main.Database
                 .SetTransaction(m_rtr)
                 .SetParameterValue("@FilesetId", filesetid);
 
-            return await cmd.ExecuteNonQueryAsync(token).ConfigureAwait(false);
+            return await cmd.ExecuteNonQueryAsync(true, token).ConfigureAwait(false);
         }
 
         /// <summary>
@@ -480,7 +480,7 @@ namespace Duplicati.Library.Main.Database
                     ")
                         .SetParameterValue("@Name", volumename);
 
-                    var blockCount = await cmd.ExecuteNonQueryAsync(token)
+                    var blockCount = await cmd.ExecuteNonQueryAsync(true, token)
                         .ConfigureAwait(false);
 
                     if (blockCount == 0)
@@ -561,7 +561,7 @@ namespace Duplicati.Library.Main.Database
                     .SetParameterValue("@Hash", hash)
                     .SetParameterValue("@Size", size)
                     .SetParameterValue("@PreviousRestoredValue", 0)
-                    .ExecuteNonQueryAsync(token)
+                    .ExecuteNonQueryAsync(true, token)
                     .ConfigureAwait(false) == 1;
 
                 if (restored)
@@ -569,14 +569,14 @@ namespace Duplicati.Library.Main.Database
                     await m_copyIntoDuplicatedBlocks.SetTransaction(m_rtr)
                         .SetParameterValue("@Hash", hash)
                         .SetParameterValue("@Size", size)
-                        .ExecuteNonQueryAsync(token)
+                        .ExecuteNonQueryAsync(true, token)
                         .ConfigureAwait(false);
 
                     var c = await m_assignBlocksToNewVolume.SetTransaction(m_rtr)
                         .SetParameterValue("@TargetVolumeId", targetVolumeId)
                         .SetParameterValue("@Hash", hash)
                         .SetParameterValue("@Size", size)
-                        .ExecuteNonQueryAsync(token)
+                        .ExecuteNonQueryAsync(true, token)
                         .ConfigureAwait(false);
 
                     if (c != 1)
@@ -709,7 +709,7 @@ namespace Duplicati.Library.Main.Database
                 ")
                     .SetParameterValue("@HashesPerBlock", hashesPerBlock)
                     .SetParameterValue("@Restored", 0)
-                    .ExecuteNonQueryAsync(token)
+                    .ExecuteNonQueryAsync(true, token)
                     .ConfigureAwait(false);
 
                     cmd.SetCommandAndParameters($@"
@@ -816,7 +816,7 @@ namespace Duplicati.Library.Main.Database
                     .SetParameterValue("@SourceVolumeId", sourceVolumeId)
                     .SetParameterValue("@Restored", 1);
 
-                var moved = await cmd.ExecuteNonQueryAsync(token)
+                var moved = await cmd.ExecuteNonQueryAsync(true, token)
                     .ConfigureAwait(false);
 
                 // Then update the blocks table to point to the new volume
@@ -836,7 +836,7 @@ namespace Duplicati.Library.Main.Database
                     .SetParameterValue("@TargetVolumeId", targetVolumeId)
                     .SetParameterValue("@SourceVolumeId", sourceVolumeId)
                     .SetParameterValue("@Restored", 1)
-                    .ExecuteNonQueryAsync(token)
+                    .ExecuteNonQueryAsync(true, token)
                     .ConfigureAwait(false);
 
                 if (updated != moved)
@@ -1070,7 +1070,7 @@ namespace Duplicati.Library.Main.Database
                         await c2
                             .SetParameterValue("@MetadataId", rd.GetValue(0))
                             .SetParameterValue("@BlocksetId", rd.GetValue(1))
-                            .ExecuteNonQueryAsync(token)
+                            .ExecuteNonQueryAsync(true, token)
                             .ConfigureAwait(false);
                     }
                 }
@@ -1127,7 +1127,7 @@ namespace Duplicati.Library.Main.Database
                             .SetParameterValue("@Path", rd.GetValue(1))
                             .SetParameterValue("@BlocksetId", rd.GetValue(2))
                             .SetParameterValue("@MetadataId", rd.GetValue(3))
-                            .ExecuteNonQueryAsync(token)
+                            .ExecuteNonQueryAsync(true, token)
                             .ConfigureAwait(false);
                     }
                 }
@@ -1270,7 +1270,7 @@ namespace Duplicati.Library.Main.Database
                             .SetParameterValue("@Path", rd.GetValue(2))
                             .SetParameterValue("@BlocksetId", rd.GetValue(3))
                             .SetParameterValue("@MetadataId", rd.GetValue(4))
-                            .ExecuteNonQueryAsync(token)
+                            .ExecuteNonQueryAsync(true, token)
                             .ConfigureAwait(false);
                     }
                 }
@@ -1484,7 +1484,7 @@ namespace Duplicati.Library.Main.Database
                             WHERE ""BlocksetID"" = @BlocksetId
                         ")
                             .SetParameterValue("@BlocksetId", blocksetid)
-                            .ExecuteNonQueryAsync(token)
+                            .ExecuteNonQueryAsync(true, token)
                             .ConfigureAwait(false);
 
                         c2.SetCommandAndParameters(@"
@@ -1530,7 +1530,7 @@ namespace Duplicati.Library.Main.Database
                                     {
                                         var rc = await c6
                                             .SetParameterValue("@DeletedBlockId", deletedBlockId)
-                                            .ExecuteNonQueryAsync(token)
+                                            .ExecuteNonQueryAsync(true, token)
                                             .ConfigureAwait(false);
 
                                         if (rc != 2)
@@ -1542,7 +1542,7 @@ namespace Duplicati.Library.Main.Database
                                 await c3.SetParameterValue("@BlocksetId", blocksetid)
                                     .SetParameterValue("@Index", ix)
                                     .SetParameterValue("@Hash", blkey)
-                                    .ExecuteNonQueryAsync(token)
+                                    .ExecuteNonQueryAsync(true, token)
                                     .ConfigureAwait(false);
 
                                 ix++;
@@ -1582,7 +1582,7 @@ namespace Duplicati.Library.Main.Database
                                 {
                                     var rc = await c6
                                         .SetParameterValue("@DeletedBlockId", deletedBlockId)
-                                        .ExecuteNonQueryAsync(token)
+                                        .ExecuteNonQueryAsync(true, token)
                                         .ConfigureAwait(false);
                                     if (rc != 2)
                                         throw new Exception($"Unexpected update count: {rc}");
@@ -1594,7 +1594,7 @@ namespace Duplicati.Library.Main.Database
                                 .SetParameterValue("@BlocksetId", blocksetid)
                                 .SetParameterValue("@Index", ix)
                                 .SetParameterValue("@Hash", blkeyfinal)
-                                .ExecuteNonQueryAsync(token)
+                                .ExecuteNonQueryAsync(true, token)
                                 .ConfigureAwait(false);
                         }
                     }
@@ -1684,7 +1684,7 @@ namespace Duplicati.Library.Main.Database
                             .SetParameterValue("@BlocksetId", rd.GetValue(0))
                             .SetParameterValue("@Index", rd.GetValue(1))
                             .SetParameterValue("@Limit", expected)
-                            .ExecuteNonQueryAsync(token)
+                            .ExecuteNonQueryAsync(true, token)
                             .ConfigureAwait(false);
 
                         if (actual != expected)
@@ -1762,7 +1762,7 @@ namespace Duplicati.Library.Main.Database
                     await cmd
                         .SetParameterValue("@Hash", kp.Key)
                         .SetParameterValue("@Size", kp.Value)
-                        .ExecuteNonQueryAsync(token)
+                        .ExecuteNonQueryAsync(true, token)
                         .ConfigureAwait(false);
                 }
 
@@ -2014,7 +2014,7 @@ namespace Duplicati.Library.Main.Database
                         AND ""m"".""BlocksetID"" != @KeepBlockset
                 ")
                     .SetParameterValue("@KeepBlockset", emptyBlocksetId)
-                    .ExecuteNonQueryAsync(token)
+                    .ExecuteNonQueryAsync(true, token)
                     .ConfigureAwait(false);
 
                 // Step 2: Update FileLookup to use a valid metadata ID
@@ -2032,7 +2032,7 @@ namespace Duplicati.Library.Main.Database
                     )
                 ")
                     .SetParameterValue("@KeepBlockset", emptyBlocksetId)
-                    .ExecuteNonQueryAsync(token)
+                    .ExecuteNonQueryAsync(true, token)
                     .ConfigureAwait(false);
 
                 // Step 3: Delete obsolete Metadataset entries
@@ -2043,7 +2043,7 @@ namespace Duplicati.Library.Main.Database
                         FROM ""{tablename}""
                     )
                 ")
-                    .ExecuteNonQueryAsync(token)
+                    .ExecuteNonQueryAsync(true, token)
                     .ConfigureAwait(false);
 
                 // Step 4: Delete orphaned blocksets (affected only)
@@ -2065,7 +2065,7 @@ namespace Duplicati.Library.Main.Database
                             WHERE ""BlocksetID"" = ""Blockset"".""ID""
                         )
                 ")
-                    .ExecuteNonQueryAsync(token)
+                    .ExecuteNonQueryAsync(true, token)
                     .ConfigureAwait(false);
 
                 // Step 5: Confirm all broken metadata entries are resolved
@@ -2093,7 +2093,7 @@ namespace Duplicati.Library.Main.Database
                 try
                 {
                     await cmd.SetCommandAndParameters($@"DROP TABLE IF EXISTS ""{tablename}"" ")
-                        .ExecuteNonQueryAsync(token)
+                        .ExecuteNonQueryAsync(true, token)
                         .ConfigureAwait(false);
                 }
                 catch (Exception ex)

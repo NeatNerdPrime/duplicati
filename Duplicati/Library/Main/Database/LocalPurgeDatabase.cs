@@ -37,6 +37,11 @@ namespace Duplicati.Library.Main.Database
     internal class LocalPurgeDatabase : LocalDeleteDatabase
     {
         /// <summary>
+        /// The log tag used for logging
+        /// </summary>
+        private static readonly string LOGTAG = Logging.Log.LogTagFromType<LocalPurgeDatabase>();
+
+        /// <summary>
         /// Creates a new instance of the <see cref="LocalPurgeDatabase"/> class.
         /// </summary>
         /// <param name="path">The path to the database file.</param>
@@ -300,10 +305,11 @@ namespace Duplicati.Library.Main.Database
                         .PrepareAsync(token)
                         .ConfigureAwait(false);
 
-                    foreach (var s in p)
-                        await cmd.SetParameterValue("@Path", s)
-                            .ExecuteNonQueryAsync(token)
-                            .ConfigureAwait(false);
+                    using (new Logging.Timer(LOGTAG, "ApplyFilter", "Inserting paths into table"))
+                        foreach (var s in p)
+                            await cmd.SetParameterValue("@Path", s)
+                                .ExecuteNonQueryAsync(token) // Not logging as we log the total time
+                                .ConfigureAwait(false);
 
                     await cmd.SetCommandAndParameters($@"
                             INSERT INTO ""{m_tablename}"" (""FileID"")
@@ -317,7 +323,7 @@ namespace Duplicati.Library.Main.Database
                                 AND ""B"".""Path"" IN ""{filenamestable}""
                         ")
                         .SetParameterValue("@FilesetId", ParentID)
-                        .ExecuteNonQueryAsync(token)
+                        .ExecuteNonQueryAsync(true, token)
                         .ConfigureAwait(false);
 
                     await cmd
@@ -350,17 +356,20 @@ namespace Duplicati.Library.Main.Database
                         ")
                         .SetParameterValue("@FilesetId", ParentID);
 
-                    await using var rd = await cmd.ExecuteReaderAsync(token).ConfigureAwait(false);
-                    while (await rd.ReadAsync(token).ConfigureAwait(false))
+                    using (new Logging.Timer(LOGTAG, "ApplyFilter", "Iterating files with filter"))
                     {
-                        rd.GetValues(values);
-                        var path = values[0] as string;
-                        if (path != null && Library.Utility.FilterExpression.Matches(filter, path.ToString()))
+                        await using var rd = await cmd.ExecuteReaderAsync(token).ConfigureAwait(false);
+                        while (await rd.ReadAsync(token).ConfigureAwait(false))
                         {
-                            await cmd2
-                                .SetParameterValue("@FileId", values[1])
-                                .ExecuteNonQueryAsync(token)
-                                .ConfigureAwait(false);
+                            rd.GetValues(values);
+                            var path = values[0] as string;
+                            if (path != null && Library.Utility.FilterExpression.Matches(filter, path.ToString()))
+                            {
+                                await cmd2
+                                    .SetParameterValue("@FileId", values[1])
+                                    .ExecuteNonQueryAsync(token) // Not logging as we log the total time
+                                    .ConfigureAwait(false);
+                            }
                         }
                     }
                 }
@@ -480,7 +489,7 @@ namespace Duplicati.Library.Main.Database
                     ")
                         .SetParameterValue("@TargetFilesetId", filesetid)
                         .SetParameterValue("@SourceFilesetId", ParentID)
-                        .ExecuteNonQueryAsync(token)
+                        .ExecuteNonQueryAsync(true, token)
                         .ConfigureAwait(false);
 
                 return new Tuple<long, long>(remotevolid, filesetid);

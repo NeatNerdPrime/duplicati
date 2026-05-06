@@ -434,7 +434,7 @@ namespace Duplicati.Library.Main.Database
                         RemoteVolumeState.Deleted,
                         RemoteVolumeState.Deleting
                     ])
-                    .ExecuteNonQueryAsync(token)
+                    .ExecuteNonQueryAsync(true, token)
                     .ConfigureAwait(false);
 
                 var deletedBlocks = await cmd.ExecuteScalarInt64Async(@$"
@@ -1584,7 +1584,7 @@ namespace Duplicati.Library.Main.Database
                     ")
                 .SetParameterValue("@PreviousFilesetId", lastFilesetId)
                 .SetParameterValue("@CurrentFilesetId", fileSetId)
-                .ExecuteNonQueryAsync(token)
+                .ExecuteNonQueryAsync(true, token)
                 .ConfigureAwait(false);
 
             // now we need to remove, from the above, any entries that were enumerated by the
@@ -1614,16 +1614,17 @@ namespace Duplicati.Library.Main.Database
                         ON ""f"".""BlocksetID"" = ""bs"".""ID"";
                 ");
 
-            await foreach (var row in cmd.ExecuteReaderEnumerableAsync(token).ConfigureAwait(false))
-            {
-                var path = row.ConvertValueToString(0) ?? throw new Exception("Unexpected null value for path");
-                var size = row.ConvertValueToInt64(3);
+            using (new Logging.Timer(LOGTAG, "DeletePreviousFiles", $"Deleting files not included in the current backup"))
+                await foreach (var row in cmd.ExecuteReaderEnumerableAsync(token).ConfigureAwait(false))
+                {
+                    var path = row.ConvertValueToString(0) ?? throw new Exception("Unexpected null value for path");
+                    var size = row.ConvertValueToInt64(3);
 
-                if (exclusionPredicate(path, size))
-                    await cmdDelete.SetParameterValue("@FileId", row.ConvertValueToInt64(1))
-                        .ExecuteNonQueryAsync(token)
-                        .ConfigureAwait(false);
-            }
+                    if (exclusionPredicate(path, size))
+                        await cmdDelete.SetParameterValue("@FileId", row.ConvertValueToInt64(1))
+                            .ExecuteNonQueryAsync(token) // Not logging because we log the full operation
+                            .ConfigureAwait(false);
+                }
 
             // now copy the temporary table into the FileSetEntry table
             await cmd.SetCommandAndParameters($@"
@@ -1639,7 +1640,7 @@ namespace Duplicati.Library.Main.Database
                     FROM ""{tempFileSetTable}""
                 ")
                 .SetParameterValue("@FilesetId", fileSetId)
-                .ExecuteNonQueryAsync(token)
+                .ExecuteNonQueryAsync(true, token)
                 .ConfigureAwait(false);
 
             await m_rtr.CommitAsync(token).ConfigureAwait(false);
@@ -1741,7 +1742,7 @@ namespace Duplicati.Library.Main.Database
                 .SetParameterValue("@Hash", blockkey)
                 .SetParameterValue("@Size", size)
                 .SetParameterValue("@PreviousVolumeId", sourcevolumeid)
-                .ExecuteNonQueryAsync(token)
+                .ExecuteNonQueryAsync(true, token)
                 .ConfigureAwait(false);
 
             if (c != 1)
@@ -1870,10 +1871,11 @@ namespace Duplicati.Library.Main.Database
         /// <exception cref="Exception">Thrown if unable to add change journal entry.</exception>
         public async Task CreateChangeJournalData(IEnumerable<Interface.USNJournalDataEntry> data, CancellationToken token)
         {
-            foreach (var entry in data)
-            {
-                await using var cmd = m_connection.CreateCommand(m_rtr);
-                var c = await cmd.SetCommandAndParameters(@"
+            using (new Logging.Timer(LOGTAG, "CreateChangeJournalData", "Inserting USN entries"))
+                foreach (var entry in data)
+                {
+                    await using var cmd = m_connection.CreateCommand(m_rtr);
+                    var c = await cmd.SetCommandAndParameters(@"
                         INSERT INTO ""ChangeJournalData"" (
                             ""FilesetID"",
                             ""VolumeName"",
@@ -1889,17 +1891,17 @@ namespace Duplicati.Library.Main.Database
                             @ConfigHash
                         );
                     ")
-                    .SetParameterValue("@FilesetId", m_filesetId)
-                    .SetParameterValue("@VolumeName", entry.Volume)
-                    .SetParameterValue("@JournalId", entry.JournalId)
-                    .SetParameterValue("@NextUsn", entry.NextUsn)
-                    .SetParameterValue("@ConfigHash", entry.ConfigHash)
-                    .ExecuteNonQueryAsync(token)
-                    .ConfigureAwait(false);
+                        .SetParameterValue("@FilesetId", m_filesetId)
+                        .SetParameterValue("@VolumeName", entry.Volume)
+                        .SetParameterValue("@JournalId", entry.JournalId)
+                        .SetParameterValue("@NextUsn", entry.NextUsn)
+                        .SetParameterValue("@ConfigHash", entry.ConfigHash)
+                        .ExecuteNonQueryAsync(token) // Not logging, as we log the whole operation
+                        .ConfigureAwait(false);
 
-                if (c != 1)
-                    throw new Exception("Unable to add change journal entry");
-            }
+                    if (c != 1)
+                        throw new Exception("Unable to add change journal entry");
+                }
 
             await m_rtr.CommitAsync(token: token).ConfigureAwait(false);
         }
@@ -1913,10 +1915,11 @@ namespace Duplicati.Library.Main.Database
         /// <returns>A task that completes when the data is added.</returns>
         public async Task UpdateChangeJournalData(IEnumerable<Interface.USNJournalDataEntry> data, long fileSetId, CancellationToken token)
         {
-            foreach (var entry in data)
-            {
-                await using var cmd = m_connection.CreateCommand();
-                await cmd.SetCommandAndParameters(@"
+            using (new Logging.Timer(LOGTAG, "UpdateChangeJournalData", "Updating USN entries"))
+                foreach (var entry in data)
+                {
+                    await using var cmd = m_connection.CreateCommand();
+                    await cmd.SetCommandAndParameters(@"
                         UPDATE ""ChangeJournalData""
                         SET ""NextUSN"" = @NextUsn
                         WHERE
@@ -1924,14 +1927,14 @@ namespace Duplicati.Library.Main.Database
                             AND ""VolumeName"" = @VolumeName
                             AND ""JournalID"" = @JournalId;
                     ")
-                    .SetTransaction(m_rtr)
-                    .SetParameterValue("@NextUsn", entry.NextUsn)
-                    .SetParameterValue("@FilesetId", fileSetId)
-                    .SetParameterValue("@VolumeName", entry.Volume)
-                    .SetParameterValue("@JournalId", entry.JournalId)
-                    .ExecuteNonQueryAsync(token)
-                    .ConfigureAwait(false);
-            }
+                        .SetTransaction(m_rtr)
+                        .SetParameterValue("@NextUsn", entry.NextUsn)
+                        .SetParameterValue("@FilesetId", fileSetId)
+                        .SetParameterValue("@VolumeName", entry.Volume)
+                        .SetParameterValue("@JournalId", entry.JournalId)
+                        .ExecuteNonQueryAsync(token) // Not logging, as we log the whole operation
+                        .ConfigureAwait(false);
+                }
 
             await m_rtr.CommitAsync(token: token).ConfigureAwait(false);
         }
@@ -1989,7 +1992,7 @@ namespace Duplicati.Library.Main.Database
             var deletedCount = await cmd
                 .SetCommandAndParameters(sql)
                 .SetParameterValue("@FilesetId", filesetId)
-                .ExecuteNonQueryAsync(token)
+                .ExecuteNonQueryAsync(true, token)
                 .ConfigureAwait(false);
 
             if (deletedCount > 0)

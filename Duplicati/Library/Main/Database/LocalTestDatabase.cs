@@ -100,7 +100,7 @@ namespace Duplicati.Library.Main.Database
                     WHERE ""Name"" = @Name
                 ")
                 .SetParameterValue("@Name", name)
-                .ExecuteNonQueryAsync(token)
+                .ExecuteNonQueryAsync(true, token)
                 .ConfigureAwait(false);
         }
 
@@ -556,7 +556,7 @@ namespace Duplicati.Library.Main.Database
                     .SetParameterValue("@Hash", hash)
                     .SetParameterValue("@Metasize", metasize)
                     .SetParameterValue("@Metahash", metahash)
-                    .ExecuteNonQueryAsync(token)
+                    .ExecuteNonQueryAsync(true, token)
                     .ConfigureAwait(false);
             }
 
@@ -646,7 +646,7 @@ namespace Duplicati.Library.Main.Database
                     await cmd
                         .SetCommandAndParameters(create)
                         .SetParameterValue("@Name", m_volumename)
-                        .ExecuteNonQueryAsync(token)
+                        .ExecuteNonQueryAsync(true, token)
                         .ConfigureAwait(false);
 
                     cmd
@@ -775,7 +775,7 @@ namespace Duplicati.Library.Main.Database
                     .SetParameterValue("@Name", filename)
                     .SetParameterValue("@Hash", hash)
                     .SetParameterValue("@Size", length)
-                    .ExecuteNonQueryAsync(token)
+                    .ExecuteNonQueryAsync(true, token)
                     .ConfigureAwait(false);
             }
 
@@ -844,7 +844,7 @@ namespace Duplicati.Library.Main.Database
                     await cmd
                         .SetCommandAndParameters(create)
                         .SetParameterValue("@Name", m_volumename)
-                        .ExecuteNonQueryAsync(token)
+                        .ExecuteNonQueryAsync(true, token)
                         .ConfigureAwait(false);
 
                     cmd
@@ -980,7 +980,7 @@ namespace Duplicati.Library.Main.Database
                     .SetTransaction(m_db.Transaction)
                     .SetParameterValue("@Hash", hash)
                     .SetParameterValue("@Size", size)
-                    .ExecuteNonQueryAsync(token)
+                    .ExecuteNonQueryAsync(true, token)
                     .ConfigureAwait(false);
             }
 
@@ -1083,7 +1083,7 @@ namespace Duplicati.Library.Main.Database
                     await cmd
                         .SetCommandAndParameters(create)
                         .SetParameterValue("@Name", m_volumename)
-                        .ExecuteNonQueryAsync(token)
+                        .ExecuteNonQueryAsync(true, token)
                         .ConfigureAwait(false);
 
                     cmd
@@ -1181,7 +1181,7 @@ namespace Duplicati.Library.Main.Database
                     .SetTransaction(m_db.Transaction)
                     .SetParameterValue("@Hash", hash)
                     .SetParameterValue("@Size", size)
-                    .ExecuteNonQueryAsync(token)
+                    .ExecuteNonQueryAsync(true, token)
                     .ConfigureAwait(false);
             }
 
@@ -1303,7 +1303,7 @@ namespace Duplicati.Library.Main.Database
                     await cmd
                         .SetCommandAndParameters(create)
                         .SetParameterValue("@Name", m_volumename)
-                        .ExecuteNonQueryAsync(token)
+                        .ExecuteNonQueryAsync(true, token)
                         .ConfigureAwait(false);
 
                     // Compare against actual values inserted into temp table
