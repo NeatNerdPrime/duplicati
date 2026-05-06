@@ -1452,7 +1452,7 @@ namespace Duplicati.Library.Main.Database
                             ""Path"" TEXT NOT NULL
                         )
                     ")
-                    .ExecuteNonQueryAsync(m_logQueries, token)
+                    .ExecuteNonQueryAsync(true, token)
                     .ConfigureAwait(false);
 
                 await cmd.SetTransaction(m_rtr)
@@ -1472,7 +1472,7 @@ namespace Duplicati.Library.Main.Database
                         CREATE INDEX ""{skipTable}-idx""
                             ON ""{skipTable}"" (""PrefixID"", ""Path"")
                     ")
-                    .ExecuteNonQueryAsync(m_logQueries, token)
+                    .ExecuteNonQueryAsync(true, token)
                     .ConfigureAwait(false);
 
                 // 2. Build the candidate set: prior-fileset entries that aren't
@@ -1489,7 +1489,7 @@ namespace Duplicati.Library.Main.Database
                             ""Lastmodified"" INTEGER NOT NULL
                         )
                     ")
-                    .ExecuteNonQueryAsync(m_logQueries, token)
+                    .ExecuteNonQueryAsync(true, token)
                     .ConfigureAwait(false);
 
                 await cmd.SetTransaction(m_rtr)
@@ -1514,7 +1514,7 @@ namespace Duplicati.Library.Main.Database
                     ")
                     .SetParameterValue("@CurrentFilesetId", filesetid)
                     .SetParameterValue("@PreviousFilesetId", lastFilesetId)
-                    .ExecuteNonQueryAsync(m_logQueries, token)
+                    .ExecuteNonQueryAsync(true, token)
                     .ConfigureAwait(false);
 
                 // 3. Final INSERT. For each candidate, pick the FileLookup row
@@ -1538,7 +1538,7 @@ namespace Duplicati.Library.Main.Database
                         FROM ""{candTable}"" ""c""
                     ")
                     .SetParameterValue("@CurrentFilesetId", filesetid)
-                    .ExecuteNonQueryAsync(m_logQueries, token)
+                    .ExecuteNonQueryAsync(true, token)
                     .ConfigureAwait(false);
             }
             finally
@@ -1581,7 +1581,7 @@ namespace Duplicati.Library.Main.Database
                         .ExpandInClauseParameterMssqliteAsync("@Paths", tmplist, token)
                         .ConfigureAwait(false)
                 )
-                    .ExecuteNonQueryAsync(m_logQueries, token)
+                    .ExecuteNonQueryAsync(true, token)
                     .ConfigureAwait(false);
             }
 
