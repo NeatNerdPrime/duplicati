@@ -509,7 +509,7 @@ namespace Duplicati.Library.Main.Database
                                 AND ""FilesetEntry"".""FilesetID"" = @FilesetId
                         ")
                             .SetParameterValue("@FilesetId", filesetId)
-                            .ExecuteNonQueryAsync(token)
+                            .ExecuteNonQueryAsync(true, token)
                             .ConfigureAwait(false);
                     }
                     else if (Library.Utility.Utility.IsFSCaseSensitive && filter is FilterExpression expression && expression.Type == FilterType.Simple)
@@ -536,13 +536,14 @@ namespace Duplicati.Library.Main.Database
                         ")
                             .ConfigureAwait(false);
 
-                        foreach (var s in p)
-                        {
-                            await cmd
-                                .SetParameterValue("@Path", s)
-                                .ExecuteNonQueryAsync(token)
-                                .ConfigureAwait(false);
-                        }
+                        using (new Logging.Timer(LOGTAG, "InsertFilteredPaths", "Inserting filtered paths into temporary table"))
+                            foreach (var s in p)
+                            {
+                                await cmd
+                                    .SetParameterValue("@Path", s)
+                                    .ExecuteNonQueryAsync(token) // Not logging as we log the total time
+                                    .ConfigureAwait(false);
+                            }
 
                         var c = await cmd.SetCommandAndParameters($@"
                             INSERT INTO ""{m_tempfiletable}"" (
@@ -570,7 +571,7 @@ namespace Duplicati.Library.Main.Database
                                 )
                         ")
                             .SetParameterValue("@FilesetId", filesetId)
-                            .ExecuteNonQueryAsync(token)
+                            .ExecuteNonQueryAsync(true, token)
                             .ConfigureAwait(false);
 
                         if (c != p.Length && c != 0)
@@ -647,21 +648,25 @@ namespace Duplicati.Library.Main.Database
                                 0
                             )
                         ");
-                        await using var rd = await cmd.ExecuteReaderAsync(token)
-                            .ConfigureAwait(false);
-                        while (await rd.ReadAsync(token).ConfigureAwait(false))
+
+                        using (new Logging.Timer(LOGTAG, "ApplyFilter", "Iterating files with filter"))
                         {
-                            rd.GetValues(values);
-                            var path = values[1] as string;
-                            if (path != null && FilterExpression.Matches(filter, path.ToString()!))
+                            await using var rd = await cmd.ExecuteReaderAsync(token)
+                                .ConfigureAwait(false);
+                            while (await rd.ReadAsync(token).ConfigureAwait(false))
                             {
-                                await cmd2
-                                    .SetParameterValue("@ID", values[0])
-                                    .SetParameterValue("@Path", values[1])
-                                    .SetParameterValue("@BlocksetID", values[2])
-                                    .SetParameterValue("@MetadataID", values[3])
-                                    .ExecuteNonQueryAsync(token)
-                                    .ConfigureAwait(false);
+                                rd.GetValues(values);
+                                var path = values[1] as string;
+                                if (path != null && FilterExpression.Matches(filter, path.ToString()!))
+                                {
+                                    await cmd2
+                                        .SetParameterValue("@ID", values[0])
+                                        .SetParameterValue("@Path", values[1])
+                                        .SetParameterValue("@BlocksetID", values[2])
+                                        .SetParameterValue("@MetadataID", values[3])
+                                        .ExecuteNonQueryAsync(token) // Not logging as we log the total time
+                                        .ConfigureAwait(false);
+                                }
                             }
                         }
                     }
@@ -734,7 +739,7 @@ namespace Duplicati.Library.Main.Database
             ")
                 .SetTransaction(m_rtr);
 
-            var v0 = await cmd.ExecuteScalarAsync(token).ConfigureAwait(false);
+            var v0 = await cmd.ExecuteScalarAsync(true, token).ConfigureAwait(false);
             if (v0 == null || v0 == DBNull.Value)
                 return null;
 
@@ -756,7 +761,7 @@ namespace Duplicati.Library.Main.Database
             ")
                 .SetTransaction(m_rtr);
 
-            var v0 = await cmd.ExecuteScalarAsync(token).ConfigureAwait(false);
+            var v0 = await cmd.ExecuteScalarAsync(true, token).ConfigureAwait(false);
             var maxpath = "";
             if (v0 != null && v0 != DBNull.Value)
                 maxpath = v0.ToString()!;
@@ -863,7 +868,7 @@ namespace Duplicati.Library.Main.Database
                             END
                     ")
                         .SetParameterValue("@Path", Util.AppendDirSeparator(System.IO.Path.GetPathRoot(Library.Utility.TempFolder.SystemTempPath) ?? "").Replace("\\", "/"))
-                        .ExecuteNonQueryAsync(token)
+                        .ExecuteNonQueryAsync(true, token)
                         .ConfigureAwait(false);
                 }
                 else
@@ -914,7 +919,7 @@ namespace Duplicati.Library.Main.Database
                         SET ""TargetPath"" = SUBSTR(""Path"", @PrefixLength)
                     ")
                         .SetParameterValue("@PrefixLength", largest_prefix.Length + 1)
-                        .ExecuteNonQueryAsync(token)
+                        .ExecuteNonQueryAsync(true, token)
                         .ConfigureAwait(false);
                 }
             }
@@ -944,7 +949,7 @@ namespace Duplicati.Library.Main.Database
                     SET ""TargetPath"" = @Destination || ""TargetPath""
                 ")
                     .SetParameterValue("@Destination", Util.AppendDirSeparator(destination))
-                    .ExecuteNonQueryAsync(token)
+                    .ExecuteNonQueryAsync(true, token)
                     .ConfigureAwait(false);
             }
 
@@ -1068,7 +1073,7 @@ namespace Duplicati.Library.Main.Database
                 .SetTransaction(m_rtr)
                 .SetParameterValue("@TargetPath", newname)
                 .SetParameterValue("@ID", ID)
-                .ExecuteNonQueryAsync(token)
+                .ExecuteNonQueryAsync(true, token)
                 .ConfigureAwait(false);
 
             await m_rtr.CommitAsync(token: token).ConfigureAwait(false);
@@ -1702,13 +1707,15 @@ namespace Duplicati.Library.Main.Database
                         @Size
                     )
                 ");
-                foreach (var s in curvolume.Blocks)
-                {
-                    await c.SetParameterValue("@Hash", s.Key)
-                        .SetParameterValue("@Size", s.Value)
-                        .ExecuteNonQueryAsync(token)
-                        .ConfigureAwait(false);
-                }
+
+                using (new Logging.Timer(LOGTAG, "InsertBlocks", "Inserting blocks from current volume"))
+                    foreach (var s in curvolume.Blocks)
+                    {
+                        await c.SetParameterValue("@Hash", s.Key)
+                            .SetParameterValue("@Size", s.Value)
+                            .ExecuteNonQueryAsync(token) // Not logging as we log the total time
+                            .ConfigureAwait(false);
+                    }
 
                 // The index _HashSizeIndex is not needed anymore. Index on "Blocks-..." is used on Join in GetMissingBlocks
 
@@ -2251,7 +2258,7 @@ namespace Duplicati.Library.Main.Database
             ")
                 .SetTransaction(m_rtr);
 
-            var result = await cmd.ExecuteScalarAsync(token)
+            var result = await cmd.ExecuteScalarAsync(true, token)
                 .ConfigureAwait(false);
 
             if (result == DBNull.Value || result == null)
@@ -2598,7 +2605,7 @@ namespace Duplicati.Library.Main.Database
                     .SetTransaction(m_db.Transaction)
                     .SetParameterValue("@TargetFileId", targetfileid);
 
-                var r = await m_resetfileCommand.ExecuteNonQueryAsync(token)
+                var r = await m_resetfileCommand.ExecuteNonQueryAsync(true, token)
                     .ConfigureAwait(false);
                 if (r <= 0)
                     throw new Exception("Unexpected reset result");
@@ -2614,7 +2621,7 @@ namespace Duplicati.Library.Main.Database
                     .SetParameterValue("@Metadata", includeMetadata ? 1 : 0);
 
                 var r = await m_updateAsRestoredCommand
-                    .ExecuteNonQueryAsync(token)
+                    .ExecuteNonQueryAsync(true, token)
                     .ConfigureAwait(false);
                 if (r <= 0)
                     throw new Exception("Unexpected reset result");
@@ -2629,7 +2636,7 @@ namespace Duplicati.Library.Main.Database
                     .SetParameterValue("@TargetFileId", targetfileid);
 
                 var r = await m_updateFileAsDataVerifiedCommand
-                    .ExecuteNonQueryAsync(token)
+                    .ExecuteNonQueryAsync(true, token)
                     .ConfigureAwait(false);
                 if (r != 1)
                     throw new Exception("Unexpected result when marking file as verified.");
@@ -2648,7 +2655,7 @@ namespace Duplicati.Library.Main.Database
                     .SetParameterValue("@Metadata", metadata);
 
                 var r = await m_insertblockCommand
-                    .ExecuteNonQueryAsync(token)
+                    .ExecuteNonQueryAsync(true, token)
                     .ConfigureAwait(false);
 
                 if (r != 1)
@@ -2887,21 +2894,25 @@ namespace Duplicati.Library.Main.Database
                     SELECT DISTINCT ""{m_tempfiletable}"".""Path""
                     FROM ""{m_tempfiletable}""
                 ");
-                await using (var rd = await cmdReader.ExecuteReaderAsync(token).ConfigureAwait(false))
+
+                using (new Logging.Timer(LOGTAG, "CheckLocalSourceExists", "Checking if local source files exist"))
                 {
-                    while (await rd.ReadAsync(token).ConfigureAwait(false))
+                    await using (var rd = await cmdReader.ExecuteReaderAsync(token).ConfigureAwait(false))
                     {
-                        var sourcepath = rd.ConvertValueToString(0);
-                        if (SystemIO.IO_OS.FileExists(sourcepath))
+                        while (await rd.ReadAsync(token).ConfigureAwait(false))
                         {
-                            await cmd
-                                .SetParameterValue("@Path", sourcepath)
-                                .ExecuteNonQueryAsync(token)
-                                .ConfigureAwait(false);
-                        }
-                        else
-                        {
-                            Logging.Log.WriteVerboseMessage(LOGTAG, "LocalSourceMissing", "Local source file not found: {0}", sourcepath);
+                            var sourcepath = rd.ConvertValueToString(0);
+                            if (SystemIO.IO_OS.FileExists(sourcepath))
+                            {
+                                await cmd
+                                    .SetParameterValue("@Path", sourcepath)
+                                    .ExecuteNonQueryAsync(token) // Not logging as we log the total time
+                                    .ConfigureAwait(false);
+                            }
+                            else
+                            {
+                                Logging.Log.WriteVerboseMessage(LOGTAG, "LocalSourceMissing", "Local source file not found: {0}", sourcepath);
+                            }
                         }
                     }
                 }

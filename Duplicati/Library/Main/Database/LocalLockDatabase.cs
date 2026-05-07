@@ -73,7 +73,7 @@ namespace Duplicati.Library.Main.Database
             cmd.SetParameterValue("@Name", name);
             cmd.SetParameterValue("@LockExpirationTime", Library.Utility.Utility.NormalizeDateTimeToEpochSeconds(lockExpirationTime));
 
-            var c = await cmd.ExecuteNonQueryAsync(token).ConfigureAwait(false);
+            var c = await cmd.ExecuteNonQueryAsync(true, token).ConfigureAwait(false);
             if (c != 1)
                 throw new Exception($"Unexpected number of remote volumes updated: {c}, expected 1");
         }

@@ -80,7 +80,7 @@ public static class ChangeStatistics
             ")
                 .SetParameterValue("@LastFilesetId", previousFilesetId)
                 .SetParameterValue("@CurrentFilesetId", currentFilesetId)
-                .ExecuteNonQueryAsync(token)
+                .ExecuteNonQueryAsync(true, token)
                 .ConfigureAwait(false);
 
             // Index for fast comparison

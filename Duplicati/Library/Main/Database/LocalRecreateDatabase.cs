@@ -873,7 +873,7 @@ namespace Duplicati.Library.Main.Database
                 .SetParameterValue("@FilesetId", filesetid)
                 .SetParameterValue("@FileId", fileid)
                 .SetParameterValue("@LastModified", time.ToUniversalTime().Ticks)
-                .ExecuteNonQueryAsync(token)
+                .ExecuteNonQueryAsync(true, token)
                 .ConfigureAwait(false);
         }
 
@@ -953,21 +953,22 @@ namespace Duplicati.Library.Main.Database
                     .SetTransaction(m_rtr)
                     .SetParameterValue("@BlocksetId", blocksetid);
 
-                foreach (var hash in blocklisthashes)
-                {
-                    if (!string.IsNullOrEmpty(hash))
+                using (new Logging.Timer(LOGTAG, "AddBlockset", "Inserting blocklist hashes"))
+                    foreach (var hash in blocklisthashes)
                     {
-                        c++;
-                        if (c <= expectedblocklisthashes)
+                        if (!string.IsNullOrEmpty(hash))
                         {
-                            await m_insertBlocklistHashCommand
-                                .SetParameterValue("@Index", index++)
-                                .SetParameterValue("@Hash", hash)
-                                .ExecuteNonQueryAsync(token)
-                                .ConfigureAwait(false);
+                            c++;
+                            if (c <= expectedblocklisthashes)
+                            {
+                                await m_insertBlocklistHashCommand
+                                    .SetParameterValue("@Index", index++)
+                                    .SetParameterValue("@Hash", hash)
+                                    .ExecuteNonQueryAsync(token) // Not logging as we log the total time
+                                    .ConfigureAwait(false);
+                            }
                         }
                     }
-                }
             }
 
             if (c != expectedblocklisthashes)
@@ -1008,7 +1009,7 @@ namespace Duplicati.Library.Main.Database
                     .SetParameterValue("@Hash", hash)
                     .SetParameterValue("@Size", size)
                     .SetParameterValue("@VolumeId", volumeID)
-                    .ExecuteNonQueryAsync(token)
+                    .ExecuteNonQueryAsync(true, token)
                     .ConfigureAwait(false);
 
                 return (anyChange, true);
@@ -1021,7 +1022,7 @@ namespace Duplicati.Library.Main.Database
                     .SetParameterValue("@VolumeId", volumeID)
                     .SetParameterValue("@Hash", hash)
                     .SetParameterValue("@Size", size)
-                    .ExecuteNonQueryAsync(token)
+                    .ExecuteNonQueryAsync(true, token)
                     .ConfigureAwait(false);
 
                 if (c != 1)
@@ -1036,7 +1037,7 @@ namespace Duplicati.Library.Main.Database
                     .SetParameterValue("@Hash", hash)
                     .SetParameterValue("@Size", size)
                     .SetParameterValue("@VolumeId", volumeID)
-                    .ExecuteNonQueryAsync(token)
+                    .ExecuteNonQueryAsync(true, token)
                     .ConfigureAwait(false);
 
                 return (anyChange, false);
@@ -1059,7 +1060,7 @@ namespace Duplicati.Library.Main.Database
                 .SetParameterValue("@FileHash", filehash)
                 .SetParameterValue("@BlockHash", blockhash)
                 .SetParameterValue("@BlockSize", blocksize)
-                .ExecuteNonQueryAsync(token)
+                .ExecuteNonQueryAsync(true, token)
                 .ConfigureAwait(false);
         }
 
@@ -1076,7 +1077,7 @@ namespace Duplicati.Library.Main.Database
             var r = await m_findTempBlockListHashCommand
                 .SetTransaction(m_rtr)
                 .SetParameterValue("@BlocklistHash", hash)
-                .ExecuteScalarAsync(token)
+                .ExecuteScalarAsync(true, token)
                 .ConfigureAwait(false);
 
             if (r != null && r != DBNull.Value)
@@ -1093,7 +1094,7 @@ namespace Duplicati.Library.Main.Database
                 await m_insertTempBlockListHash
                     .SetParameterValue("@BlockHash", s)
                     .SetParameterValue("@Index", index++)
-                    .ExecuteNonQueryAsync(token)
+                    .ExecuteNonQueryAsync(true, token)
                     .ConfigureAwait(false);
             }
 
@@ -1572,7 +1573,7 @@ namespace Duplicati.Library.Main.Database
             update.Parameters.AddWithValue("@Content", content);
             update.Parameters.AddWithValue("@MetadataId", metadataId);
 
-            await update.ExecuteNonQueryAsync(token).ConfigureAwait(false);
+            await update.ExecuteNonQueryAsync(true, token).ConfigureAwait(false);
         }
 
         public override void Dispose()

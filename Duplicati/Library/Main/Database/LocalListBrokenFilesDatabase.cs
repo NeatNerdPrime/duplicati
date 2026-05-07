@@ -300,7 +300,7 @@ namespace Duplicati.Library.Main.Database
                 .SetCommandAndParameters(INSERT_BROKEN_IDS(tablename, IDfieldname))
                 .SetParameterValue("@FilesetId", filesetid);
 
-            await cmd.ExecuteNonQueryAsync(token)
+            await cmd.ExecuteNonQueryAsync(true, token)
                 .ConfigureAwait(false);
         }
 
@@ -339,7 +339,7 @@ namespace Duplicati.Library.Main.Database
                 .SetParameterValue("@EmptyBlocksetID", emptyBlocksetId)
                 .SetParameterValue("@FilesetID", filesetId);
 
-            return await cmd.ExecuteNonQueryAsync(token).ConfigureAwait(false);
+            return await cmd.ExecuteNonQueryAsync(true, token).ConfigureAwait(false);
         }
 
         /// <summary>
@@ -375,7 +375,7 @@ namespace Duplicati.Library.Main.Database
                     .ExpandInClauseParameterMssqliteAsync("@Names", tmptable, token)
                     .ConfigureAwait(false)
                 )
-                  .ExecuteNonQueryAsync(token)
+                  .ExecuteNonQueryAsync(true, token)
                   .ConfigureAwait(false);
 
             var volIdsSubQuery = $@"
